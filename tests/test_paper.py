@@ -107,3 +107,33 @@ def test_from_url_invalid_date_uses_today():
 
     assert paper.submission_date == today
 
+
+def test_from_url_invalid_date_uses_patched_today():
+    fallback = date(1999, 12, 31)
+
+    class FakeDate(date):
+        @classmethod
+        def today(cls):
+            return fallback
+
+    html = """\
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="citation_title" content="Patched" />
+<meta name="citation_author" content="Author" />
+<meta name="citation_date" content="bad-date" />
+<meta name="citation_abstract" content="Invalid" />
+</head>
+<body></body>
+</html>
+"""
+
+    with patch("newsletter.paper.urllib.request.urlopen") as mock_get, patch(
+        "newsletter.paper.date", FakeDate
+    ):
+        mock_get.return_value.read.return_value = html.encode()
+        paper = Paper.from_url("http://arxiv.org/abs/0000.0000")
+
+    assert paper.submission_date == fallback
+
