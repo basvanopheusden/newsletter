@@ -1,6 +1,6 @@
 from unittest.mock import Mock, patch
 
-from newsletter.arxiv import get_recent_arxiv_urls, RECENT_URL
+from newsletter.arxiv import get_recent_arxiv_urls, RECENT_URL, HEADERS
 
 
 def test_get_recent_arxiv_urls_parses_links():
@@ -21,7 +21,7 @@ def test_get_recent_arxiv_urls_parses_links():
             "https://arxiv.org/abs/1234.5678",
             "https://arxiv.org/abs/2345.6789v2",
         ]
-        mock_get.assert_called_once_with(RECENT_URL, timeout=10)
+        mock_get.assert_called_once_with(RECENT_URL, timeout=10, headers=HEADERS)
 
 
 def test_get_recent_arxiv_urls_dedup_and_sort():
