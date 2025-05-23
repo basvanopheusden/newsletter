@@ -4,16 +4,14 @@ The primary entry point is :func:`get_recent_arxiv_urls` which returns the
 fully-qualified URLs of papers appearing on the recent cs.AI listing page.
 """
 
-import re
 import logging
 from urllib.parse import urljoin
 
 import requests
+from bs4 import BeautifulSoup
 
 BASE_URL = "https://arxiv.org"
 RECENT_URL = f"{BASE_URL}/list/cs.AI/recent?skip=0&show=2000"
-# Accept both single and double quoted href attributes
-ABS_LINK_RE = re.compile(r"href=['\"](/abs/[^'\"]+)['\"]")
 
 # User agent to avoid being blocked by arXiv when running outside tests
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; newsletter/1.0)"}
@@ -32,7 +30,13 @@ def get_recent_arxiv_urls() -> list[str]:
         getattr(response, "status_code", "unknown"),
         len(response.text),
     )
-    matches = ABS_LINK_RE.findall(response.text)
-    unique_paths = sorted(set(matches))
+    soup = BeautifulSoup(response.text, "html.parser")
+    paths: list[str] = []
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if href.startswith("/abs/"):
+            paths.append(href)
+
+    unique_paths = sorted(set(paths))
     logger.info("Found %d unique URLs", len(unique_paths))
     return [urljoin(BASE_URL, path) for path in unique_paths]
