@@ -69,7 +69,6 @@ class Paper:
                 abstract=cached.get("abstract", ""),
                 authors=cached.get("authors", []),
                 submission_date=date.fromisoformat(cached["submission_date"]),
-                twitter_results=cached.get("twitter_results"),
                 google_results=cached.get("google_results"),
             )
 

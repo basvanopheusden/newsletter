@@ -224,26 +224,8 @@ def test_search_caches(tmp_path):
             paper.query_google()
             m_g.assert_called_once()
 
-        class Client:
-            def __init__(self):
-                self.calls = 0
-
-            def search_recent_tweets(self, query, max_results=10):
-                self.calls += 1
-                class R:
-                    data = [type("T", (), {"text": "t1"})]
-
-                return R()
-
-        c = Client()
-        paper.query_twitter(c)
-        assert c.calls == 1
-
     with patch.dict(os.environ, env):
         with patch("newsletter.paper.google_search") as m_g2:
             assert paper.query_google() == ["g1"]
             m_g2.assert_not_called()
 
-        c2 = Client()
-        paper.query_twitter(c2)
-        assert c2.calls == 0
