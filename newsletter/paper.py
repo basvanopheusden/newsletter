@@ -8,16 +8,17 @@ from html import unescape
 from typing import List, Optional
 
 import logging
-import re
 import requests
+from bs4 import BeautifulSoup
 
 
-def _extract_meta(html: str, name: str) -> str | None:
+def _extract_meta(soup: BeautifulSoup, name: str) -> str | None:
     """Return the content of a ``citation_*`` meta tag if present."""
 
-    pattern = rf'<meta[^>]+name=["\']{name}["\'][^>]+content=["\']([^"\']+)["\']'
-    m = re.search(pattern, html, flags=re.IGNORECASE)
-    return unescape(m.group(1)) if m else None
+    tag = soup.find("meta", attrs={"name": name})
+    if tag and tag.has_attr("content"):
+        return unescape(tag["content"])
+    return None
 
 
 from googlesearch import search as google_search
@@ -73,6 +74,7 @@ class Paper:
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         html = resp.text
+        soup = BeautifulSoup(html, "html.parser")
         logger.debug(
             "Received response (status %s) with %d characters",
             getattr(resp, "status_code", "unknown"),
@@ -80,23 +82,22 @@ class Paper:
         )
 
         # Title
-        title = _extract_meta(html, "citation_title") or ""
+        title = _extract_meta(soup, "citation_title") or ""
         logger.debug("Parsed title: %s", title)
 
         # Abstract
-        abstract = _extract_meta(html, "citation_abstract") or ""
+        abstract = _extract_meta(soup, "citation_abstract") or ""
 
-        # Authors can appear multiple times. ``re.findall`` will collect them.
-        authors_pattern = (
-            r'<meta[^>]+name=["\']citation_author["\'][^>]+content=["\']([^"\']+)["\']'
-        )
+        # Authors can appear multiple times.
         authors = [
-            unescape(a) for a in re.findall(authors_pattern, html, flags=re.IGNORECASE)
+            unescape(tag["content"])
+            for tag in soup.find_all("meta", attrs={"name": "citation_author"})
+            if tag.has_attr("content")
         ]
         logger.debug("Parsed %d authors", len(authors))
 
         # Submission date in format YYYY/MM/DD
-        date_str = _extract_meta(html, "citation_date") or "1970/01/01"
+        date_str = _extract_meta(soup, "citation_date") or "1970/01/01"
         try:
             submission_date = date.fromisoformat(date_str.replace("/", "-"))
         except ValueError:
