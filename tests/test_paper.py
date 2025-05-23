@@ -37,7 +37,6 @@ def test_create_paper():
     assert paper.title == "A Great Paper"
     assert paper.arxiv_url == "http://arxiv.org/abs/1234.5678"
     assert paper.authors == ["Alice", "Bob"]
-    assert paper.twitter_results is None
     assert paper.google_results is None
 
 
@@ -144,7 +143,7 @@ def test_from_url_invalid_date_uses_patched_today():
     assert paper.submission_date == fallback
 
 
-def test_query_google_and_twitter_and_counts():
+def test_query_google_and_counts():
     paper = Paper(
         arxiv_url="http://arxiv.org/abs/9999.9999",
         title="Searchable Paper",
@@ -161,24 +160,8 @@ def test_query_google_and_twitter_and_counts():
         assert results == ["g1", "g2"]
         assert paper.google_results == ["g1", "g2"]
 
-    class FakeClient:
-        def search_recent_tweets(self, query, max_results=10):
-            class Response:
-                data = [type("T", (), {"text": "t1"}), type("T", (), {"text": "t2"})]
-
-            self.last_query = query
-            self.last_max = max_results
-            return Response()
-
-    client = FakeClient()
-    tweets = paper.query_twitter(client, max_results=5)
-    assert client.last_max == 5
-    assert "Searchable Paper" in client.last_query
-    assert tweets == ["t1", "t2"]
-    assert paper.twitter_results == ["t1", "t2"]
-
     counts = paper.search_result_counts()
-    assert counts == {"twitter": 2, "google": 2}
+    assert counts == {"google": 2}
 
 
 def test_compute_combined_scores():
@@ -196,17 +179,14 @@ def test_compute_combined_scores():
         authors=[],
         submission_date=date(2023, 1, 1),
     )
-    p1.twitter_results = ["t1", "t2"]
     p1.google_results = ["g1"]
-    p2.twitter_results = ["t1"]
     p2.google_results = ["g1", "g2", "g3"]
 
     Paper.compute_scores([p1, p2])
 
-    mean_twitter = (2 + 1) / 2
     mean_google = (1 + 3) / 2
-    expected_p1 = (2 / mean_twitter) + (1 / mean_google)
-    expected_p2 = (1 / mean_twitter) + (3 / mean_google)
+    expected_p1 = 1 / mean_google
+    expected_p2 = 3 / mean_google
 
     assert pytest.approx(p1.combined_score) == expected_p1
     assert pytest.approx(p2.combined_score) == expected_p2
