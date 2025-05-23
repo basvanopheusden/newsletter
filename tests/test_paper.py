@@ -171,3 +171,34 @@ def test_query_google_and_twitter_and_counts():
     counts = paper.search_result_counts()
     assert counts == {"twitter": 2, "google": 2}
 
+
+def test_compute_combined_scores():
+    p1 = Paper(
+        arxiv_url="u1",
+        title="p1",
+        abstract="",
+        authors=[],
+        submission_date=date(2023, 1, 1),
+    )
+    p2 = Paper(
+        arxiv_url="u2",
+        title="p2",
+        abstract="",
+        authors=[],
+        submission_date=date(2023, 1, 1),
+    )
+    p1.twitter_results = ["t1", "t2"]
+    p1.google_results = ["g1"]
+    p2.twitter_results = ["t1"]
+    p2.google_results = ["g1", "g2", "g3"]
+
+    Paper.compute_scores([p1, p2])
+
+    mean_twitter = (2 + 1) / 2
+    mean_google = (1 + 3) / 2
+    expected_p1 = (2 / mean_twitter) + (1 / mean_google)
+    expected_p2 = (1 / mean_twitter) + (3 / mean_google)
+
+    assert pytest.approx(p1.combined_score) == expected_p1
+    assert pytest.approx(p2.combined_score) == expected_p2
+
