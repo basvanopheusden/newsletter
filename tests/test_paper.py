@@ -1,5 +1,6 @@
 from datetime import date
 from unittest.mock import patch
+import os
 
 import pytest
 
@@ -210,3 +211,59 @@ def test_compute_combined_scores():
 
     assert pytest.approx(p1.combined_score) == expected_p1
     assert pytest.approx(p2.combined_score) == expected_p2
+
+
+def test_from_url_caches(tmp_path):
+    url = "http://arxiv.org/abs/1234.5678"
+    env = {"NEWSLETTER_CACHE_DIR": str(tmp_path)}
+    with patch.dict(os.environ, env):
+        with patch("newsletter.paper.requests.get") as mock_get:
+            mock_get.return_value.text = HTML_PAGE
+            mock_get.return_value.raise_for_status = lambda: None
+            Paper.from_url(url)
+            mock_get.assert_called_once()
+
+    with patch.dict(os.environ, env):
+        with patch("newsletter.paper.requests.get") as mock_get:
+            Paper.from_url(url)
+            mock_get.assert_not_called()
+
+
+def test_search_caches(tmp_path):
+    env = {"NEWSLETTER_CACHE_DIR": str(tmp_path)}
+    paper = Paper(
+        arxiv_url="http://arxiv.org/abs/cache", 
+        title="Cache Test", 
+        abstract="", 
+        authors=[], 
+        submission_date=date(2024, 1, 1),
+    )
+
+    with patch.dict(os.environ, env):
+        with patch("newsletter.paper.google_search", return_value=["g1"]) as m_g:
+            paper.query_google()
+            m_g.assert_called_once()
+
+        class Client:
+            def __init__(self):
+                self.calls = 0
+
+            def search_recent_tweets(self, query, max_results=10):
+                self.calls += 1
+                class R:
+                    data = [type("T", (), {"text": "t1"})]
+
+                return R()
+
+        c = Client()
+        paper.query_twitter(c)
+        assert c.calls == 1
+
+    with patch.dict(os.environ, env):
+        with patch("newsletter.paper.google_search") as m_g2:
+            assert paper.query_google() == ["g1"]
+            m_g2.assert_not_called()
+
+        c2 = Client()
+        paper.query_twitter(c2)
+        assert c2.calls == 0

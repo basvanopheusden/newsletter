@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from datetime import date
 from html import unescape
 from typing import List, Optional
@@ -10,6 +10,7 @@ from typing import List, Optional
 import logging
 import requests
 from bs4 import BeautifulSoup
+from . import cache
 
 
 def _extract_meta(soup: BeautifulSoup, name: str) -> str | None:
@@ -72,6 +73,18 @@ class Paper:
         required by the :class:`Paper` dataclass.
         """
 
+        cached = cache.get_paper(url)
+        if cached:
+            return cls(
+                arxiv_url=url,
+                title=cached.get("title", ""),
+                abstract=cached.get("abstract", ""),
+                authors=cached.get("authors", []),
+                submission_date=date.fromisoformat(cached["submission_date"]),
+                twitter_results=cached.get("twitter_results"),
+                google_results=cached.get("google_results"),
+            )
+
         # Retrieve the page content.  Tests patch ``requests.get`` to avoid
         # network access during unit tests.
         logger.info("Fetching %s", url)
@@ -108,13 +121,18 @@ class Paper:
             submission_date = date.today()
         logger.debug("Parsed submission date: %s", submission_date)
 
-        return cls(
+        paper = cls(
             arxiv_url=url,
             title=title,
             abstract=abstract,
             authors=authors,
             submission_date=submission_date,
         )
+        data = asdict(paper)
+        if isinstance(data.get("submission_date"), date):
+            data["submission_date"] = data["submission_date"].isoformat()
+        cache.set_paper(url, data)
+        return paper
 
     # ------------------------------------------------------------------
     # Search utilities
@@ -131,17 +149,32 @@ class Paper:
         """
 
         query = f'"{self.title}" OR "{self.arxiv_url}"'
+        cached = cache.get_paper(self.arxiv_url)
+        if cached and cached.get("twitter_results") is not None:
+            self.twitter_results = cached["twitter_results"]
+            return self.twitter_results
+
         logger.info("Searching Twitter for '%s'", self.title)
         response = client.search_recent_tweets(query=query, max_results=max_results)
         tweets = response.data or []
         self.twitter_results = [t.text for t in tweets]
         logger.debug("Found %d tweets", len(self.twitter_results))
+        data = cached or asdict(self)
+        if isinstance(data.get("submission_date"), date):
+            data["submission_date"] = data["submission_date"].isoformat()
+        data["twitter_results"] = self.twitter_results
+        cache.set_paper(self.arxiv_url, data)
         return self.twitter_results
 
     def query_google(self, num_results: int = 10) -> List[str]:
         """Search Google for the paper title or URL and store the results."""
 
         query = f'"{self.title}" OR "{self.arxiv_url}"'
+        cached = cache.get_paper(self.arxiv_url)
+        if cached and cached.get("google_results") is not None:
+            self.google_results = cached["google_results"]
+            return self.google_results
+
         logger.info("Searching Google for '%s'", self.title)
         try:
             # ``google_search`` returns an iterator over result URLs
@@ -151,6 +184,11 @@ class Paper:
             results = []
         self.google_results = results
         logger.debug("Found %d Google results", len(results))
+        data = cached or asdict(self)
+        if isinstance(data.get("submission_date"), date):
+            data["submission_date"] = data["submission_date"].isoformat()
+        data["google_results"] = self.google_results
+        cache.set_paper(self.arxiv_url, data)
         return results
 
     def search_result_counts(self) -> dict[str, int]:
