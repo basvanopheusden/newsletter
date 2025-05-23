@@ -3,6 +3,7 @@
 import asyncio
 import json
 from dataclasses import asdict
+from datetime import date
 
 from newsletter.arxiv import get_recent_arxiv_urls
 from newsletter.paper import Paper
@@ -17,9 +18,14 @@ async def main() -> None:
     urls = get_recent_arxiv_urls()
     tasks = [fetch_paper(url) for url in urls]
     papers = await asyncio.gather(*tasks)
+    Paper.compute_scores(papers)
+    papers.sort(key=lambda p: p.combined_score, reverse=True)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as fh:
         for paper in papers:
-            json.dump(asdict(paper), fh)
+            data = asdict(paper)
+            if isinstance(data.get("submission_date"), date):
+                data["submission_date"] = data["submission_date"].isoformat()
+            json.dump(data, fh)
             fh.write("\n")
 
 if __name__ == "__main__":

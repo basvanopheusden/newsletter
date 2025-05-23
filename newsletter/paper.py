@@ -40,6 +40,7 @@ class Paper:
     submission_date: date
     twitter_results: Optional[List[str]] = field(default=None)
     google_results: Optional[List[str]] = field(default=None)
+    combined_score: float = field(default=0.0, init=False)
 
     @classmethod
     def from_url(cls, url: str) -> "Paper":
@@ -128,3 +129,33 @@ class Paper:
             "twitter": len(self.twitter_results or []),
             "google": len(self.google_results or []),
         }
+
+    # ------------------------------------------------------------------
+    # Scoring utilities
+    # ------------------------------------------------------------------
+    def compute_score(self, mean_twitter: float, mean_google: float) -> float:
+        """Compute and store the combined search score for this paper."""
+
+        counts = self.search_result_counts()
+        score = 0.0
+        if mean_twitter:
+            score += counts["twitter"] / mean_twitter
+        if mean_google:
+            score += counts["google"] / mean_google
+        self.combined_score = score
+        return score
+
+    @classmethod
+    def compute_scores(cls, papers: List["Paper"]) -> None:
+        """Compute combined scores for all given papers."""
+
+        if not papers:
+            return
+
+        total_twitter = sum(p.search_result_counts()["twitter"] for p in papers)
+        total_google = sum(p.search_result_counts()["google"] for p in papers)
+        mean_twitter = total_twitter / len(papers) if papers else 0
+        mean_google = total_google / len(papers) if papers else 0
+
+        for p in papers:
+            p.compute_score(mean_twitter, mean_google)
