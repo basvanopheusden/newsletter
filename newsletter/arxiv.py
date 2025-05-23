@@ -1,3 +1,9 @@
+"""Fetch and parse listings from the arXiv website.
+
+The primary entry point is :func:`get_recent_arxiv_urls` which returns the
+fully-qualified URLs of papers appearing on the recent cs.AI listing page.
+"""
+
 import re
 from urllib.parse import urljoin
 
@@ -7,7 +13,7 @@ BASE_URL = "https://arxiv.org"
 RECENT_URL = f"{BASE_URL}/list/cs.AI/recent?skip=0&show=2000"
 
 
-def get_recent_arxiv_urls():
+def get_recent_arxiv_urls() -> list[str]:
     """Return a list of arXiv paper URLs from the recent cs.AI page."""
     response = requests.get(RECENT_URL)
     response.raise_for_status()
