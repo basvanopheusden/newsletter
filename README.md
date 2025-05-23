@@ -10,3 +10,7 @@ from newsletter.arxiv import get_recent_arxiv_urls
 urls = get_recent_arxiv_urls()
 print(urls[:5])
 ```
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
