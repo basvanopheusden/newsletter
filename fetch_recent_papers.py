@@ -25,7 +25,10 @@ def _serialize_paper(paper: Paper) -> dict:
 
 async def fetch_paper(url: str) -> Paper:
     """Fetch a single paper concurrently."""
-    return await asyncio.to_thread(Paper.from_url, url)
+    logger.debug("Fetching paper %s", url)
+    paper = await asyncio.to_thread(Paper.from_url, url)
+    logger.debug("Finished fetching %s", url)
+    return paper
 
 
 async def main(output_file: str | None = None) -> None:
@@ -42,8 +45,10 @@ async def main(output_file: str | None = None) -> None:
     tasks = [fetch_paper(url) for url in urls]
     papers = await asyncio.gather(*tasks)
     logger.info("Fetched %d papers", len(papers))
+    logger.info("Computing scores")
     Paper.compute_scores(papers)
     papers.sort(key=lambda p: p.combined_score, reverse=True)
+    logger.debug("Top paper: %s", papers[0].arxiv_url if papers else "none")
 
     with open(output_file, "w", encoding="utf-8") as fh:
         for paper in papers:
