@@ -7,6 +7,7 @@ from datetime import date
 from html import unescape
 from typing import List, Optional
 
+import logging
 import re
 import requests
 
@@ -21,6 +22,8 @@ def _extract_meta(html: str, name: str) -> str | None:
 
 from googlesearch import search as google_search
 import tweepy
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -66,12 +69,19 @@ class Paper:
 
         # Retrieve the page content.  Tests patch ``requests.get`` to avoid
         # network access during unit tests.
+        logger.info("Fetching %s", url)
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         html = resp.text
+        logger.debug(
+            "Received response (status %s) with %d characters",
+            getattr(resp, "status_code", "unknown"),
+            len(html),
+        )
 
         # Title
         title = _extract_meta(html, "citation_title") or ""
+        logger.debug("Parsed title: %s", title)
 
         # Abstract
         abstract = _extract_meta(html, "citation_abstract") or ""
@@ -83,6 +93,7 @@ class Paper:
         authors = [
             unescape(a) for a in re.findall(authors_pattern, html, flags=re.IGNORECASE)
         ]
+        logger.debug("Parsed %d authors", len(authors))
 
         # Submission date in format YYYY/MM/DD
         date_str = _extract_meta(html, "citation_date") or "1970/01/01"
@@ -90,6 +101,7 @@ class Paper:
             submission_date = date.fromisoformat(date_str.replace("/", "-"))
         except ValueError:
             submission_date = date.today()
+        logger.debug("Parsed submission date: %s", submission_date)
 
         return cls(
             arxiv_url=url,

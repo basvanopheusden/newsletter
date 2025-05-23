@@ -2,11 +2,14 @@
 """Download recent arXiv cs.AI papers concurrently and save to JSONL."""
 import asyncio
 import json
+import logging
 from dataclasses import asdict
 from datetime import date
 
 from newsletter.arxiv import get_recent_arxiv_urls
 from newsletter.paper import Paper
+
+logger = logging.getLogger(__name__)
 
 OUTPUT_FILE = "papers.jsonl"
 
@@ -31,9 +34,14 @@ async def main(output_file: str | None = None) -> None:
     if output_file is None:
         output_file = OUTPUT_FILE
 
+    logger.info("Fetching recent arXiv URLs")
     urls = get_recent_arxiv_urls()
+    logger.info("Retrieved %d URLs", len(urls))
+
+    logger.info("Fetching paper metadata")
     tasks = [fetch_paper(url) for url in urls]
     papers = await asyncio.gather(*tasks)
+    logger.info("Fetched %d papers", len(papers))
     Paper.compute_scores(papers)
     papers.sort(key=lambda p: p.combined_score, reverse=True)
 
@@ -44,4 +52,5 @@ async def main(output_file: str | None = None) -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     asyncio.run(main())
