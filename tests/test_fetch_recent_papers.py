@@ -32,19 +32,13 @@ def test_main_sorts_by_score(tmp_path):
         authors=[],
         submission_date=date(2023, 1, 1),
     )
-    p1.twitter_results = ["t1", "t2"]
     p1.google_results = ["g1"]
-    p2.twitter_results = ["t1"]
     p2.google_results = ["g1", "g2", "g3"]
 
     with patch.object(fetch_recent_papers, "OUTPUT_FILE", str(out)), patch.object(
         fetch_recent_papers, "get_recent_arxiv_urls", return_value=["u1", "u2"]
     ), patch("fetch_recent_papers.Paper.from_url", side_effect=[p1, p2]), patch(
         "fetch_recent_papers.Paper.query_google", _noop
-    ), patch(
-        "fetch_recent_papers.Paper.query_twitter", _noop
-    ), patch(
-        "fetch_recent_papers._create_twitter_client", return_value=None
     ):
         asyncio.run(fetch_recent_papers.main())
 
@@ -66,14 +60,11 @@ def test_fetch_paper_calls_from_url():
         "fetch_recent_papers.Paper.from_url", return_value=sample
     ) as mock_from, patch(
         "fetch_recent_papers.Paper.query_google", return_value=[]
-    ) as mock_google, patch(
-        "fetch_recent_papers.Paper.query_twitter", return_value=[]
-    ) as mock_twitter:
-        result = asyncio.run(fetch_recent_papers.fetch_paper("u", twitter_client="c"))
+    ) as mock_google:
+        result = asyncio.run(fetch_recent_papers.fetch_paper("u"))
     assert result is sample
     mock_from.assert_called_once_with("u")
     mock_google.assert_called_once()
-    mock_twitter.assert_called_once_with("c", 10)
 
 
 def test_main_writes_jsonl(tmp_path: Path):
@@ -99,15 +90,10 @@ def test_main_writes_jsonl(tmp_path: Path):
             "abstract": p.abstract,
             "authors": p.authors,
             "submission_date": p.submission_date.isoformat(),
-            "twitter_results": p.twitter_results,
             "google_results": p.google_results,
         },
     ), patch(
         "fetch_recent_papers.Paper.query_google", _noop
-    ), patch(
-        "fetch_recent_papers.Paper.query_twitter", _noop
-    ), patch(
-        "fetch_recent_papers._create_twitter_client", return_value=None
     ):
         asyncio.run(fetch_recent_papers.main())
 
@@ -122,7 +108,6 @@ def test_main_writes_jsonl(tmp_path: Path):
             "abstract": "Abst",
             "authors": ["A"],
             "submission_date": "2024-01-01",
-            "twitter_results": None,
             "google_results": None,
         }
     ]
