@@ -1,3 +1,5 @@
+"""Representation of arXiv papers and helpers to retrieve their metadata."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,6 +12,24 @@ import urllib.request
 
 @dataclass
 class Paper:
+    """Metadata for an arXiv paper.
+
+    Parameters
+    ----------
+    arxiv_url : str
+        URL of the arXiv ``abs`` page.
+    title : str
+        Title of the paper.
+    abstract : str
+        Paper abstract.
+    authors : List[str]
+        List of author names.
+    submission_date : date
+        Date the paper was submitted.
+
+    Instances are typically created via :meth:`from_url` which scrapes these
+    fields from an arXiv HTML page.
+    """
     arxiv_url: str
     title: str
     abstract: str

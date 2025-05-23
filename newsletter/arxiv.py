@@ -1,3 +1,9 @@
+"""Fetch and parse listings from the arXiv website.
+
+The primary entry point is :func:`get_recent_arxiv_urls` which returns the
+fully-qualified URLs of papers appearing on the recent cs.AI listing page.
+"""
+
 import re
 from urllib.parse import urljoin
 
