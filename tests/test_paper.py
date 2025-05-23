@@ -37,6 +37,8 @@ def test_create_paper():
     assert paper.title == "A Great Paper"
     assert paper.arxiv_url == "http://arxiv.org/abs/1234.5678"
     assert paper.authors == ["Alice", "Bob"]
+    assert paper.twitter_results is None
+    assert paper.google_results is None
 
 
 def test_from_url_parses_paper_metadata():
@@ -133,4 +135,39 @@ def test_from_url_invalid_date_uses_patched_today():
         paper = Paper.from_url("http://arxiv.org/abs/0000.0000")
 
     assert paper.submission_date == fallback
+
+
+def test_query_google_and_twitter_and_counts():
+    paper = Paper(
+        arxiv_url="http://arxiv.org/abs/9999.9999",
+        title="Searchable Paper",
+        abstract="Test",
+        authors=["Author"],
+        submission_date=date(2023, 1, 1),
+    )
+
+    with patch("newsletter.paper.google_search", return_value=["g1", "g2"]) as mock_google:
+        results = paper.query_google(num_results=2)
+        mock_google.assert_called_once()
+        assert results == ["g1", "g2"]
+        assert paper.google_results == ["g1", "g2"]
+
+    class FakeClient:
+        def search_recent_tweets(self, query, max_results=10):
+            class Response:
+                data = [type("T", (), {"text": "t1"}), type("T", (), {"text": "t2"})]
+
+            self.last_query = query
+            self.last_max = max_results
+            return Response()
+
+    client = FakeClient()
+    tweets = paper.query_twitter(client, max_results=5)
+    assert client.last_max == 5
+    assert "Searchable Paper" in client.last_query
+    assert tweets == ["t1", "t2"]
+    assert paper.twitter_results == ["t1", "t2"]
+
+    counts = paper.search_result_counts()
+    assert counts == {"twitter": 2, "google": 2}
 
