@@ -15,13 +15,13 @@ def test_get_recent_arxiv_urls_parses_links():
     mock_response.text = html
     mock_response.raise_for_status = Mock()
 
-    with patch('newsletter.arxiv.requests.get', return_value=mock_response) as mock_get:
+    with patch("newsletter.arxiv.requests.get", return_value=mock_response) as mock_get:
         urls = get_recent_arxiv_urls()
         assert urls == [
-            'https://arxiv.org/abs/1234.5678',
-            'https://arxiv.org/abs/2345.6789v2'
+            "https://arxiv.org/abs/1234.5678",
+            "https://arxiv.org/abs/2345.6789v2",
         ]
-        mock_get.assert_called_once_with(RECENT_URL)
+        mock_get.assert_called_once_with(RECENT_URL, timeout=10)
 
 
 def test_get_recent_arxiv_urls_dedup_and_sort():
@@ -36,9 +36,9 @@ def test_get_recent_arxiv_urls_dedup_and_sort():
     mock_response.text = html
     mock_response.raise_for_status = Mock()
 
-    with patch('newsletter.arxiv.requests.get', return_value=mock_response):
+    with patch("newsletter.arxiv.requests.get", return_value=mock_response):
         urls = get_recent_arxiv_urls()
         assert urls == [
-            'https://arxiv.org/abs/1234.5678',
-            'https://arxiv.org/abs/3456.7890v2',
+            "https://arxiv.org/abs/1234.5678",
+            "https://arxiv.org/abs/3456.7890v2",
         ]

@@ -42,12 +42,16 @@ def test_create_paper():
 
 
 def test_from_url_parses_paper_metadata():
-    with patch("newsletter.paper.urllib.request.urlopen") as mock_get:
-        mock_get.return_value.read.return_value = HTML_PAGE.encode()
+    with patch("newsletter.paper.requests.get") as mock_get:
+        mock_get.return_value.text = HTML_PAGE
+        mock_get.return_value.raise_for_status = lambda: None
         paper = Paper.from_url("http://arxiv.org/abs/1234.5678")
-        mock_get.assert_called_once_with("http://arxiv.org/abs/1234.5678")
+        mock_get.assert_called_once_with("http://arxiv.org/abs/1234.5678", timeout=10)
 
-    assert paper.title == "X-MAS: Towards Building Multi-Agent Systems with Heterogeneous LLMs"
+    assert (
+        paper.title
+        == "X-MAS: Towards Building Multi-Agent Systems with Heterogeneous LLMs"
+    )
     assert paper.authors == [
         "Ye, Rui",
         "Liu, Xiangrui",
@@ -77,8 +81,9 @@ def test_from_url_missing_date_defaults_to_epoch():
 </html>
 """
 
-    with patch("newsletter.paper.urllib.request.urlopen") as mock_get:
-        mock_get.return_value.read.return_value = html.encode()
+    with patch("newsletter.paper.requests.get") as mock_get:
+        mock_get.return_value.text = html
+        mock_get.return_value.raise_for_status = lambda: None
         paper = Paper.from_url("http://arxiv.org/abs/0000.0000")
 
     assert paper.submission_date == date(1970, 1, 1)
@@ -100,8 +105,9 @@ def test_from_url_invalid_date_uses_today():
 </html>
 """
 
-    with patch("newsletter.paper.urllib.request.urlopen") as mock_get:
-        mock_get.return_value.read.return_value = html.encode()
+    with patch("newsletter.paper.requests.get") as mock_get:
+        mock_get.return_value.text = html
+        mock_get.return_value.raise_for_status = lambda: None
         paper = Paper.from_url("http://arxiv.org/abs/0000.0000")
 
     assert paper.submission_date == today
@@ -128,10 +134,11 @@ def test_from_url_invalid_date_uses_patched_today():
 </html>
 """
 
-    with patch("newsletter.paper.urllib.request.urlopen") as mock_get, patch(
+    with patch("newsletter.paper.requests.get") as mock_get, patch(
         "newsletter.paper.date", FakeDate
     ):
-        mock_get.return_value.read.return_value = html.encode()
+        mock_get.return_value.text = html
+        mock_get.return_value.raise_for_status = lambda: None
         paper = Paper.from_url("http://arxiv.org/abs/0000.0000")
 
     assert paper.submission_date == fallback
@@ -146,7 +153,9 @@ def test_query_google_and_twitter_and_counts():
         submission_date=date(2023, 1, 1),
     )
 
-    with patch("newsletter.paper.google_search", return_value=["g1", "g2"]) as mock_google:
+    with patch(
+        "newsletter.paper.google_search", return_value=["g1", "g2"]
+    ) as mock_google:
         results = paper.query_google(num_results=2)
         mock_google.assert_called_once()
         assert results == ["g1", "g2"]
@@ -201,4 +210,3 @@ def test_compute_combined_scores():
 
     assert pytest.approx(p1.combined_score) == expected_p1
     assert pytest.approx(p2.combined_score) == expected_p2
-

@@ -11,13 +11,13 @@ import requests
 
 BASE_URL = "https://arxiv.org"
 RECENT_URL = f"{BASE_URL}/list/cs.AI/recent?skip=0&show=2000"
+ABS_LINK_RE = re.compile(r'href="(/abs/[^\"]+)"')
 
 
 def get_recent_arxiv_urls() -> list[str]:
-    """Return a list of arXiv paper URLs from the recent cs.AI page."""
-    response = requests.get(RECENT_URL)
+    """Return a sorted list of unique arXiv paper URLs from the cs.AI listing."""
+    response = requests.get(RECENT_URL, timeout=10)
     response.raise_for_status()
-    pattern = re.compile(r'href="(/abs/[^\"]+)"')
-    matches = pattern.findall(response.text)
+    matches = ABS_LINK_RE.findall(response.text)
     unique_paths = sorted(set(matches))
     return [urljoin(BASE_URL, path) for path in unique_paths]

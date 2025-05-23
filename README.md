@@ -11,12 +11,22 @@ urls = get_recent_arxiv_urls()
 print(urls[:5])
 ```
 
+## Downloading recent papers
+
+The script :mod:`fetch_recent_papers` downloads the latest cs.AI papers,
+computes simple search scores and writes the results to ``papers.jsonl``:
+
+```bash
+python fetch_recent_papers.py
+```
+
 ## Development
 
 Install the package in editable mode and run the tests:
 
 ```bash
 pip install -e .[test]
+black -q .
 pytest -q
 ```
 ## License
