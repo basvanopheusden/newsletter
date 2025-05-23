@@ -17,7 +17,10 @@ def _extract_meta(soup: BeautifulSoup, name: str) -> str | None:
 
     tag = soup.find("meta", attrs={"name": name})
     if tag and tag.has_attr("content"):
-        return unescape(tag["content"])
+        content = unescape(tag["content"])
+        logger.debug("Extracted %s: %s", name, content)
+        return content
+    logger.debug("Meta tag %s not found", name)
     return None
 
 
@@ -127,27 +130,32 @@ class Paper:
         """
 
         query = f'"{self.title}" OR "{self.arxiv_url}"'
+        logger.info("Searching Twitter for '%s'", self.title)
         response = client.search_recent_tweets(query=query, max_results=max_results)
         tweets = response.data or []
         self.twitter_results = [t.text for t in tweets]
+        logger.debug("Found %d tweets", len(self.twitter_results))
         return self.twitter_results
 
     def query_google(self, num_results: int = 10) -> List[str]:
         """Search Google for the paper title or URL and store the results."""
 
         query = f'"{self.title}" OR "{self.arxiv_url}"'
+        logger.info("Searching Google for '%s'", self.title)
         # ``google_search`` returns an iterator over result URLs
         results = list(google_search(query, num_results=num_results))
         self.google_results = results
+        logger.debug("Found %d Google results", len(results))
         return results
 
     def search_result_counts(self) -> dict[str, int]:
         """Return a dictionary with the number of search results."""
-
-        return {
+        counts = {
             "twitter": len(self.twitter_results or []),
             "google": len(self.google_results or []),
         }
+        logger.debug("Search result counts: %s", counts)
+        return counts
 
     # ------------------------------------------------------------------
     # Scoring utilities
@@ -162,6 +170,13 @@ class Paper:
         if mean_google:
             score += counts["google"] / mean_google
         self.combined_score = score
+        logger.debug(
+            "Computed score %.3f for %s (twitter=%d, google=%d)",
+            score,
+            self.arxiv_url,
+            counts["twitter"],
+            counts["google"],
+        )
         return score
 
     @classmethod
@@ -175,6 +190,13 @@ class Paper:
         total_google = sum(p.search_result_counts()["google"] for p in papers)
         mean_twitter = total_twitter / len(papers) if papers else 0
         mean_google = total_google / len(papers) if papers else 0
+
+        logger.info(
+            "Computing scores for %d papers (mean_twitter=%.3f, mean_google=%.3f)",
+            len(papers),
+            mean_twitter,
+            mean_google,
+        )
 
         for p in papers:
             p.compute_score(mean_twitter, mean_google)
