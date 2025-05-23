@@ -1,2 +1,5 @@
 pytest
 requests
+tweepy
+google-api-python-client
+googlesearch-python
