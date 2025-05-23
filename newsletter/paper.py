@@ -25,6 +25,7 @@ def _extract_meta(soup: BeautifulSoup, name: str) -> str | None:
 
 
 from googlesearch import search as google_search
+from requests.exceptions import HTTPError
 import tweepy
 
 logger = logging.getLogger(__name__)
@@ -142,8 +143,12 @@ class Paper:
 
         query = f'"{self.title}" OR "{self.arxiv_url}"'
         logger.info("Searching Google for '%s'", self.title)
-        # ``google_search`` returns an iterator over result URLs
-        results = list(google_search(query, num_results=num_results))
+        try:
+            # ``google_search`` returns an iterator over result URLs
+            results = list(google_search(query, num_results=num_results))
+        except HTTPError as exc:
+            logger.warning("Google search failed for %s: %s", self.title, exc)
+            results = []
         self.google_results = results
         logger.debug("Found %d Google results", len(results))
         return results
