@@ -7,7 +7,17 @@ from datetime import date
 from html import unescape
 from typing import List, Optional
 
-import urllib.request
+import re
+import requests
+
+
+def _extract_meta(html: str, name: str) -> str | None:
+    """Return the content of a ``citation_*`` meta tag if present."""
+
+    pattern = rf'<meta[^>]+name=["\']{name}["\'][^>]+content=["\']([^"\']+)["\']'
+    m = re.search(pattern, html, flags=re.IGNORECASE)
+    return unescape(m.group(1)) if m else None
+
 
 from googlesearch import search as google_search
 import tweepy
@@ -33,6 +43,7 @@ class Paper:
     Instances are typically created via :meth:`from_url` which scrapes these
     fields from an arXiv HTML page.
     """
+
     arxiv_url: str
     title: str
     abstract: str
@@ -53,33 +64,28 @@ class Paper:
         required by the :class:`Paper` dataclass.
         """
 
-        # Retrieve the page content.  Tests patch ``urllib.request.urlopen`` so
-        # we stick with ``urllib`` rather than using ``requests``.
-        resp = urllib.request.urlopen(url)
-        html = resp.read().decode("utf-8", errors="ignore")
-
-        # Helper function to extract a single meta tag value using a regular
-        # expression.  The meta tags of interest have the form:
-        #   <meta name="citation_title" content="..." />
-        import re
-
-        def extract(name: str) -> str | None:
-            pattern = rf'<meta[^>]+name=["\']{name}["\'][^>]+content=["\']([^"\']+)["\']'
-            m = re.search(pattern, html, flags=re.IGNORECASE)
-            return unescape(m.group(1)) if m else None
+        # Retrieve the page content.  Tests patch ``requests.get`` to avoid
+        # network access during unit tests.
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        html = resp.text
 
         # Title
-        title = extract("citation_title") or ""
+        title = _extract_meta(html, "citation_title") or ""
 
         # Abstract
-        abstract = extract("citation_abstract") or ""
+        abstract = _extract_meta(html, "citation_abstract") or ""
 
         # Authors can appear multiple times. ``re.findall`` will collect them.
-        authors_pattern = r'<meta[^>]+name=["\']citation_author["\'][^>]+content=["\']([^"\']+)["\']'
-        authors = [unescape(a) for a in re.findall(authors_pattern, html, flags=re.IGNORECASE)]
+        authors_pattern = (
+            r'<meta[^>]+name=["\']citation_author["\'][^>]+content=["\']([^"\']+)["\']'
+        )
+        authors = [
+            unescape(a) for a in re.findall(authors_pattern, html, flags=re.IGNORECASE)
+        ]
 
         # Submission date in format YYYY/MM/DD
-        date_str = extract("citation_date") or "1970/01/01"
+        date_str = _extract_meta(html, "citation_date") or "1970/01/01"
         try:
             submission_date = date.fromisoformat(date_str.replace("/", "-"))
         except ValueError:

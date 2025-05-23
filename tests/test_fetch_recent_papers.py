@@ -33,15 +33,16 @@ def test_main_sorts_by_score(tmp_path):
     p2.twitter_results = ["t1"]
     p2.google_results = ["g1", "g2", "g3"]
 
-    with patch.object(fetch_recent_papers, "OUTPUT_FILE", str(out)), \
-         patch.object(fetch_recent_papers, "get_recent_arxiv_urls", return_value=["u1", "u2"]), \
-         patch("fetch_recent_papers.Paper.from_url", side_effect=[p1, p2]):
+    with patch.object(fetch_recent_papers, "OUTPUT_FILE", str(out)), patch.object(
+        fetch_recent_papers, "get_recent_arxiv_urls", return_value=["u1", "u2"]
+    ), patch("fetch_recent_papers.Paper.from_url", side_effect=[p1, p2]):
         asyncio.run(fetch_recent_papers.main())
 
     lines = out.read_text().splitlines()
     assert len(lines) == 2
     first = json.loads(lines[0])
     assert first["arxiv_url"] == "u2"
+
 
 def test_fetch_paper_calls_from_url():
     sample = Paper(
@@ -73,7 +74,8 @@ def test_main_writes_jsonl(tmp_path: Path):
     ) as mock_urls, patch(
         "fetch_recent_papers.Paper.from_url", return_value=sample
     ) as mock_from, patch(
-        "fetch_recent_papers.asdict", lambda p: {
+        "fetch_recent_papers.asdict",
+        lambda p: {
             "arxiv_url": p.arxiv_url,
             "title": p.title,
             "abstract": p.abstract,
@@ -81,7 +83,7 @@ def test_main_writes_jsonl(tmp_path: Path):
             "submission_date": p.submission_date.isoformat(),
             "twitter_results": p.twitter_results,
             "google_results": p.google_results,
-        }
+        },
     ):
         asyncio.run(fetch_recent_papers.main())
 
