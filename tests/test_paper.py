@@ -63,3 +63,47 @@ def test_from_url_parses_paper_metadata():
         "enabling cooperation among multiple specialized agents."
     )
     assert paper.submission_date == date(2025, 5, 22)
+
+
+def test_from_url_missing_date_defaults_to_epoch():
+    html = """\
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="citation_title" content="No Date" />
+<meta name="citation_author" content="Author" />
+<meta name="citation_abstract" content="No date available" />
+</head>
+<body></body>
+</html>
+"""
+
+    with patch("newsletter.paper.urllib.request.urlopen") as mock_get:
+        mock_get.return_value.read.return_value = html.encode()
+        paper = Paper.from_url("http://arxiv.org/abs/0000.0000")
+
+    assert paper.submission_date == date(1970, 1, 1)
+    assert paper.authors == ["Author"]
+
+
+def test_from_url_invalid_date_uses_today():
+    today = date.today()
+    html = """\
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="citation_title" content="Bad Date" />
+<meta name="citation_author" content="Author" />
+<meta name="citation_date" content="invalid-date" />
+<meta name="citation_abstract" content="Invalid" />
+</head>
+<body></body>
+</html>
+"""
+
+    with patch("newsletter.paper.urllib.request.urlopen") as mock_get:
+        mock_get.return_value.read.return_value = html.encode()
+        paper = Paper.from_url("http://arxiv.org/abs/0000.0000")
+
+    assert paper.submission_date == today
+
