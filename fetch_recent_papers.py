@@ -4,31 +4,15 @@ import asyncio
 import json
 import logging
 from dataclasses import asdict
-from datetime import date
 
 from newsletter.arxiv import get_recent_arxiv_urls
 from newsletter.paper import Paper
+from newsletter.utils import serialize_paper
 
 logger = logging.getLogger(__name__)
 
 OUTPUT_FILE = "papers.jsonl"
 
-
-def _serialize_paper(paper: Paper) -> dict:
-    """Return a JSON-serialisable representation of ``paper``."""
-
-    data = asdict(paper)
-    if isinstance(data.get("submission_date"), date):
-        data["submission_date"] = data["submission_date"].isoformat()
-    return data
-
-
-async def fetch_paper(url: str) -> Paper:
-    """Fetch a single paper concurrently."""
-    logger.debug("Fetching paper %s", url)
-    paper = await asyncio.to_thread(Paper.from_url, url)
-    logger.debug("Finished fetching %s", url)
-    return paper
 
 
 async def fetch_paper(
@@ -66,7 +50,7 @@ async def main(
 
     with open(output_file, "w", encoding="utf-8") as fh:
         for paper in papers:
-            json.dump(_serialize_paper(paper), fh)
+            json.dump(serialize_paper(paper, asdict_fn=asdict), fh)
             fh.write("\n")
 
 
