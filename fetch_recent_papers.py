@@ -3,11 +3,13 @@
 import asyncio
 import json
 import logging
+import os
 from dataclasses import asdict
 from datetime import date
 
 from newsletter.arxiv import get_recent_arxiv_urls
 from newsletter.paper import Paper
+import tweepy
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +25,37 @@ def _serialize_paper(paper: Paper) -> dict:
     return data
 
 
-async def fetch_paper(url: str) -> Paper:
-    """Fetch a single paper concurrently."""
-    return await asyncio.to_thread(Paper.from_url, url)
+def _create_twitter_client() -> tweepy.Client | None:
+    """Return a Tweepy client initialized from ``TWITTER_BEARER_TOKEN``."""
+
+    token = os.getenv("TWITTER_BEARER_TOKEN")
+    if not token:
+        logger.info("Twitter token not provided; skipping Twitter searches")
+        return None
+    return tweepy.Client(bearer_token=token)
 
 
-async def main(output_file: str | None = None) -> None:
+async def fetch_paper(
+    url: str,
+    *,
+    twitter_client: tweepy.Client | None = None,
+    google_results: int = 10,
+    twitter_results: int = 10,
+) -> Paper:
+    """Fetch a single paper concurrently and query search engines."""
+
+    paper = await asyncio.to_thread(Paper.from_url, url)
+    await asyncio.to_thread(paper.query_google, num_results=google_results)
+    if twitter_client is not None:
+        await asyncio.to_thread(paper.query_twitter, twitter_client, twitter_results)
+    return paper
+
+
+async def main(
+    output_file: str | None = None,
+    *,
+    twitter_client: tweepy.Client | None = None,
+) -> None:
     """Download recent papers and write them to ``output_file``."""
 
     if output_file is None:
@@ -38,8 +65,11 @@ async def main(output_file: str | None = None) -> None:
     urls = get_recent_arxiv_urls()
     logger.info("Retrieved %d URLs", len(urls))
 
+    if twitter_client is None:
+        twitter_client = _create_twitter_client()
+
     logger.info("Fetching paper metadata")
-    tasks = [fetch_paper(url) for url in urls]
+    tasks = [fetch_paper(url, twitter_client=twitter_client) for url in urls]
     papers = await asyncio.gather(*tasks)
     logger.info("Fetched %d papers", len(papers))
     Paper.compute_scores(papers)
