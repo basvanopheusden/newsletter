@@ -12,17 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 from . import cache
 
-
-def _extract_meta(soup: BeautifulSoup, name: str) -> str | None:
-    """Return the content of a ``citation_*`` meta tag if present."""
-
-    tag = soup.find("meta", attrs={"name": name})
-    if tag and tag.has_attr("content"):
-        content = unescape(tag["content"])
-        logger.debug("Extracted %s: %s", name, content)
-        return content
-    logger.debug("Meta tag %s not found", name)
-    return None
+from .utils import extract_meta
 
 
 from googlesearch import search as google_search
@@ -97,11 +87,11 @@ class Paper:
         )
 
         # Title
-        title = _extract_meta(soup, "citation_title") or ""
+        title = extract_meta(soup, "citation_title") or ""
         logger.debug("Parsed title: %s", title)
 
         # Abstract
-        abstract = _extract_meta(soup, "citation_abstract") or ""
+        abstract = extract_meta(soup, "citation_abstract") or ""
 
         # Authors can appear multiple times.
         authors = [
@@ -112,7 +102,7 @@ class Paper:
         logger.debug("Parsed %d authors", len(authors))
 
         # Submission date in format YYYY/MM/DD
-        date_str = _extract_meta(soup, "citation_date") or "1970/01/01"
+        date_str = extract_meta(soup, "citation_date") or "1970/01/01"
         try:
             submission_date = date.fromisoformat(date_str.replace("/", "-"))
         except ValueError:
