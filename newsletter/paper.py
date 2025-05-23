@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from html import unescape
-from typing import List
+from typing import List, Optional
 
 import urllib.request
+
+from googlesearch import search as google_search
+import tweepy
 
 
 @dataclass
@@ -35,6 +38,8 @@ class Paper:
     abstract: str
     authors: List[str]
     submission_date: date
+    twitter_results: Optional[List[str]] = field(default=None)
+    google_results: Optional[List[str]] = field(default=None)
 
     @classmethod
     def from_url(cls, url: str) -> "Paper":
@@ -86,3 +91,40 @@ class Paper:
             authors=authors,
             submission_date=submission_date,
         )
+
+    # ------------------------------------------------------------------
+    # Search utilities
+    # ------------------------------------------------------------------
+    def query_twitter(self, client: tweepy.Client, max_results: int = 10) -> List[str]:
+        """Search Twitter for the paper title or URL.
+
+        Parameters
+        ----------
+        client:
+            Initialized :class:`tweepy.Client` used to perform the search.
+        max_results:
+            Maximum number of tweets to retrieve.
+        """
+
+        query = f'"{self.title}" OR "{self.arxiv_url}"'
+        response = client.search_recent_tweets(query=query, max_results=max_results)
+        tweets = response.data or []
+        self.twitter_results = [t.text for t in tweets]
+        return self.twitter_results
+
+    def query_google(self, num_results: int = 10) -> List[str]:
+        """Search Google for the paper title or URL and store the results."""
+
+        query = f'"{self.title}" OR "{self.arxiv_url}"'
+        # ``google_search`` returns an iterator over result URLs
+        results = list(google_search(query, num_results=num_results))
+        self.google_results = results
+        return results
+
+    def search_result_counts(self) -> dict[str, int]:
+        """Return a dictionary with the number of search results."""
+
+        return {
+            "twitter": len(self.twitter_results or []),
+            "google": len(self.google_results or []),
+        }
