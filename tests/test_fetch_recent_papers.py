@@ -11,6 +11,10 @@ import fetch_recent_papers
 from newsletter.paper import Paper
 
 
+def _noop(*args, **kwargs):
+    return []
+
+
 def test_main_sorts_by_score(tmp_path):
     out = tmp_path / "out.jsonl"
 
@@ -35,7 +39,13 @@ def test_main_sorts_by_score(tmp_path):
 
     with patch.object(fetch_recent_papers, "OUTPUT_FILE", str(out)), patch.object(
         fetch_recent_papers, "get_recent_arxiv_urls", return_value=["u1", "u2"]
-    ), patch("fetch_recent_papers.Paper.from_url", side_effect=[p1, p2]):
+    ), patch("fetch_recent_papers.Paper.from_url", side_effect=[p1, p2]), patch(
+        "fetch_recent_papers.Paper.query_google", _noop
+    ), patch(
+        "fetch_recent_papers.Paper.query_twitter", _noop
+    ), patch(
+        "fetch_recent_papers._create_twitter_client", return_value=None
+    ):
         asyncio.run(fetch_recent_papers.main())
 
     lines = out.read_text().splitlines()
@@ -52,10 +62,18 @@ def test_fetch_paper_calls_from_url():
         authors=[],
         submission_date=date(2024, 1, 1),
     )
-    with patch("fetch_recent_papers.Paper.from_url", return_value=sample) as mock:
-        result = asyncio.run(fetch_recent_papers.fetch_paper("u"))
+    with patch(
+        "fetch_recent_papers.Paper.from_url", return_value=sample
+    ) as mock_from, patch(
+        "fetch_recent_papers.Paper.query_google", return_value=[]
+    ) as mock_google, patch(
+        "fetch_recent_papers.Paper.query_twitter", return_value=[]
+    ) as mock_twitter:
+        result = asyncio.run(fetch_recent_papers.fetch_paper("u", twitter_client="c"))
     assert result is sample
-    mock.assert_called_once_with("u")
+    mock_from.assert_called_once_with("u")
+    mock_google.assert_called_once()
+    mock_twitter.assert_called_once_with("c", 10)
 
 
 def test_main_writes_jsonl(tmp_path: Path):
@@ -84,6 +102,12 @@ def test_main_writes_jsonl(tmp_path: Path):
             "twitter_results": p.twitter_results,
             "google_results": p.google_results,
         },
+    ), patch(
+        "fetch_recent_papers.Paper.query_google", _noop
+    ), patch(
+        "fetch_recent_papers.Paper.query_twitter", _noop
+    ), patch(
+        "fetch_recent_papers._create_twitter_client", return_value=None
     ):
         asyncio.run(fetch_recent_papers.main())
 
