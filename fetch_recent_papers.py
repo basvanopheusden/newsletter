@@ -24,16 +24,20 @@ def _serialize_paper(paper: Paper) -> dict:
         data["submission_date"] = data["submission_date"].isoformat()
     return data
 
-
 def _create_twitter_client() -> tweepy.Client | None:
     """Return a Tweepy client initialized from ``TWITTER_BEARER_TOKEN``."""
-
     token = os.getenv("TWITTER_BEARER_TOKEN")
     if not token:
         logger.info("Twitter token not provided; skipping Twitter searches")
         return None
     return tweepy.Client(bearer_token=token)
 
+async def fetch_paper(url: str) -> Paper:
+    """Fetch a single paper concurrently."""
+    logger.debug("Fetching paper %s", url)
+    paper = await asyncio.to_thread(Paper.from_url, url)
+    logger.debug("Finished fetching %s", url)
+    return paper
 
 async def fetch_paper(
     url: str,
@@ -72,8 +76,10 @@ async def main(
     tasks = [fetch_paper(url, twitter_client=twitter_client) for url in urls]
     papers = await asyncio.gather(*tasks)
     logger.info("Fetched %d papers", len(papers))
+    logger.info("Computing scores")
     Paper.compute_scores(papers)
     papers.sort(key=lambda p: p.combined_score, reverse=True)
+    logger.debug("Top paper: %s", papers[0].arxiv_url if papers else "none")
 
     with open(output_file, "w", encoding="utf-8") as fh:
         for paper in papers:
